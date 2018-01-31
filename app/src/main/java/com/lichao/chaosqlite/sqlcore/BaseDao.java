@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -97,27 +98,91 @@ public abstract class BaseDao<T> implements IBaseDao<T> {
 
     @Override
     public int update(T entity, T where) {
-        return 0;
+        int result = -1;
+        //将条件对象转换成Map
+        Map values = getValues(entity);
+        Condition condition = new Condition(getValues(where));
+        result = database.update(tableName, getContentValues(values), condition.whereClause, condition.whereArgs);
+        return result;
     }
 
     @Override
     public List<T> query(T where) {
-        return null;
+        return query(where,null,null,null);
     }
 
     @Override
     public List<T> query(T where, String oderBy, Integer startIndex, Integer limit) {
-        return null;
+        Map values = getValues(where);
+        String limitString = null;
+        if (startIndex != null && limit != null) {
+            limitString = startIndex + " , " + limit;
+        }
+        Condition condition = new Condition(values);
+        Cursor cursor = null;
+        cursor = database.query(tableName, null, condition.getWhereClause(), condition.getWhereArgs(), null, null, oderBy, limitString);
+        List<T> result = getResult(cursor, where);
+        cursor.close();
+        return result;
     }
 
     @Override
     public int delete(T where) {
-        return 0;
+        Map values = getValues(where);
+        Condition condition = new Condition(values);
+        int result = database.delete(tableName, condition.getWhereClause(), condition.getWhereArgs());
+        return result;
     }
 
     @Override
     public int batch(List<T> list) {
         return 0;
+    }
+
+    private List<T> getResult(Cursor cursor, T where) {
+        ArrayList list = new ArrayList();
+        Object item;
+        //遍历游标所有数据，每次遍历一条数据，生成一个对象，并且添加值list集合
+        while (cursor.moveToNext()) {
+            Class<?> clazz = where.getClass();
+            try {
+                item = clazz.newInstance();
+                //列名 name  成员变量名  field
+                Iterator iterator = cacheFieldMap.entrySet().iterator();
+                while (iterator.hasNext()) {
+                    Map.Entry<String, Field> entry = (Map.Entry<String, Field>) iterator.next();
+                    //列名
+                    String columnName = entry.getKey();
+                    Field field = entry.getValue();
+                    //通过列名，得到列名在游标的位置
+                    Integer columnIndex = cursor.getColumnIndex(columnName);
+                    Class type = field.getType();
+                    if(columnIndex != -1) {
+                        //成员变量类型判断
+                        if (type == String.class) {
+                            //通过反射方式赋值
+                            field.set(item, cursor.getString(columnIndex));
+                        } else if (type == Integer.class) {
+                            field.set(item, cursor.getInt(columnIndex));
+                        } else if(type == Long.class) {
+                            field.set(item,cursor.getLong(columnIndex));
+                        } else if(type == Double.class) {
+                            field.set(item,cursor.getDouble(columnIndex));
+                        } else if(type == byte[].class) {
+                            field.set(item,cursor.getBlob(columnIndex));
+                        } else {
+                            continue;
+                        }
+                    }
+                }
+                list.add(item);
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+        return list;
     }
 
     /**
@@ -168,5 +233,41 @@ public abstract class BaseDao<T> implements IBaseDao<T> {
             result.put(cacheKey, cacheValue);
         }
         return result;
+    }
+
+    /**
+     * 封装更新语句
+     */
+    class Condition {
+        //查询条件  类似 name=? && password=?
+        private String whereClause;
+        private String[] whereArgs;
+        public Condition(Map<String, String> map) {
+            ArrayList list = new ArrayList();
+            StringBuilder stringBuilder = new StringBuilder();
+            //条件恒成立, 防止报错
+            stringBuilder.append(" 1=1 ");
+            Set keys = map.keySet();
+            Iterator iterator = keys.iterator();
+            while (iterator.hasNext()) {
+                String key = (String) iterator.next();
+                String value = map.get(key);
+                if (value != null) {
+                    //拼接条件查询语句 1=1 and name=? and password=?
+                    stringBuilder.append(" and " + key + " =? ");
+                    list.add(value);
+                }
+            }
+            this.whereClause = stringBuilder.toString();
+            this.whereArgs = (String[]) list.toArray(new String[list.size()]);
+        }
+
+        public String getWhereClause() {
+            return whereClause;
+        }
+
+        public String[] getWhereArgs() {
+            return whereArgs;
+        }
     }
 }

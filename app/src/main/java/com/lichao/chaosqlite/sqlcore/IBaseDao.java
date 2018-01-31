@@ -23,7 +23,7 @@ public interface IBaseDao<T> {
     int update(T entity,T where);
 
     /**
-     * 查询所有数据
+     * 查询数据
      * @param where
      * @return
      */
@@ -37,10 +37,10 @@ public interface IBaseDao<T> {
      * @param limit
      * @return
      */
-    List<T> query(T where,String oderBy,Integer startIndex,Integer limit);
+    List<T> query(T where, String oderBy, Integer startIndex, Integer limit);
 
     /**
-     *
+     * 删除数据
      * @param where
      * @return
      */
