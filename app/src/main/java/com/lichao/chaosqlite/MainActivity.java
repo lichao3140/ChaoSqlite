@@ -1,5 +1,7 @@
 package com.lichao.chaosqlite;
 
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -7,6 +9,7 @@ import android.view.View;
 
 import com.lichao.chaosqlite.sqlcore.DaoManagerFactory;
 import com.lichao.chaosqlite.sqlcore.IBaseDao;
+import com.lichao.chaosqlite.sqlcore.normal.DBHelper;
 
 import java.util.List;
 
@@ -83,6 +86,10 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "update");
     }
 
+    /**
+     * 删除
+     * @param view
+     */
     public void delete(View view) {
         User where=new User();
         where.setName("Sindy");
@@ -90,6 +97,10 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "共删除  "+ result + "  条数据");
     }
 
+    /**
+     * 查询
+     * @param view
+     */
     public void query(View view) {
         User where = new User();
         where.setName("李四");
@@ -98,5 +109,45 @@ public class MainActivity extends AppCompatActivity {
         for (User user : list) {
             Log.i(TAG, user.toString());
         }
+    }
+
+    //----------------------------普通方式进行数据库操作-------------------------
+    public void saveUser(User user) {
+        DBHelper dbHelper = new DBHelper(this);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        db.execSQL("create table if not exists tb_user(name varchar(20),password varchar(10))");
+        ContentValues values = new ContentValues();
+        values.put("name", user.getName());
+        values.put("password", user.getPassword());
+        int scheduleID = -1;
+        try {
+            db.insert("schedule", null, values);
+        } finally {
+        }
+        db.close();
+    }
+
+    public void updateUser(User user,String name) {
+        DBHelper dbHelper=new DBHelper(this);
+        SQLiteDatabase db =dbHelper.getWritableDatabase();
+        db.execSQL("create table if not exists tb_user(name varchar(20),password varchar(10))");
+        ContentValues values = new ContentValues();
+        values.put("name", user.getName());
+        values.put("password", user.getPassword());
+        try {
+            db.update("tb_user", values, "1=1 and name=? and password= ?", new String[] { String.valueOf(user.getName()) });
+        } finally {
+        }
+        db.close();
+    }
+
+    public void deleteUser(User user,String name) {
+        DBHelper dbHelper=new DBHelper(this);
+        SQLiteDatabase db =dbHelper.getWritableDatabase();
+        try {
+            db.delete("tb_user","name=?",new String[]{user.getName()});
+        } finally {
+        }
+        db.close();
     }
 }
